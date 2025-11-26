@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mini App Note Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="app-body">
+    <header class="app-header">
+      <h1 class="app-title">📚 Note Viewer</h1>
+    </header>
+    <main class="app-main">
+      <div id="status" class="status">Loading note…</div>
+      <div id="content" class="note-content"></div>
+    </main>
+
+    <script>
+      (function () {
+        const url = new URL(window.location.href);
+        const startParam =
+          url.searchParams.get("tgWebAppStartParam") ||
+          url.searchParams.get("note");
+
+        const statusEl = document.getElementById("status");
+        const contentEl = document.getElementById("content");
+
+        if (!startParam) {
+          statusEl.textContent =
+            "No note selected. Please open this Mini App from the bot button.";
+          return;
+        }
+
+        fetch(`/api/note?id=${encodeURIComponent(startParam)}`)
+          .then((res) => {
+            if (!res.ok) throw new Error("Failed to load note");
+            return res.text();
+          })
+          .then((html) => {
+            statusEl.style.display = "none";
+            contentEl.innerHTML = html;
+          })
+          .catch((err) => {
+            console.error(err);
+            statusEl.textContent = "Error loading note or link revoked.";
+          });
+      })();
+    </script>
+  </body>
+</html>
