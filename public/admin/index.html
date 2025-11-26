@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mini App Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="admin-body">
+    <header class="admin-header">
+      <h1 class="admin-title">Mini App Admin Dashboard</h1>
+    </header>
+    <main class="admin-main">
+      <section>
+        <h2 class="admin-section-title">Admin Secret</h2>
+        <input
+          id="admin-secret"
+          type="password"
+          class="admin-input"
+          placeholder="Enter ADMIN_SECRET to manage notes"
+        />
+      </section>
+
+      <section style="margin-top: 16px;">
+        <h2 class="admin-section-title">Create New Note</h2>
+        <label class="admin-label" for="new-title">Title</label>
+        <input id="new-title" class="admin-input" placeholder="Note title" />
+
+        <label class="admin-label" for="new-description">Description</label>
+        <textarea
+          id="new-description"
+          class="admin-textarea"
+          placeholder="Optional description"
+        ></textarea>
+
+        <label class="admin-label" for="new-html">HTML Content</label>
+        <textarea
+          id="new-html"
+          class="admin-textarea"
+          placeholder="Paste your HTML here"
+        ></textarea>
+
+        <button id="create-btn" class="btn btn-primary">
+          Create Note
+        </button>
+      </section>
+
+      <section style="margin-top: 24px;">
+        <h2 class="admin-section-title">Existing Notes</h2>
+        <div id="notes" class="admin-note-list"></div>
+      </section>
+    </main>
+
+    <script>
+      const adminSecretInput = document.getElementById("admin-secret");
+      const notesContainer = document.getElementById("notes");
+      const createBtn = document.getElementById("create-btn");
+
+      async function fetchNotes() {
+        const secret = adminSecretInput.value.trim();
+        if (!secret) {
+          notesContainer.innerHTML =
+            "<div class='admin-note-meta'>Enter ADMIN_SECRET to load notes.</div>";
+          return;
+        }
+        notesContainer.innerHTML =
+          "<div class='admin-note-meta'>Loading notes…</div>";
+
+        try {
+          const res = await fetch(
+            `/api/admin?action=list&admin_secret=${encodeURIComponent(
+              secret
+            )}`
+          );
+          if (!res.ok) throw new Error("Failed to load notes");
+          const data = await res.json();
+          renderNotes(data.notes || []);
+        } catch (err) {
+          console.error(err);
+          notesContainer.innerHTML =
+            "<div class='admin-note-meta'>Error loading notes.</div>";
+        }
+      }
+
+      function renderNotes(notes) {
+        if (!notes.length) {
+          notesContainer.innerHTML =
+            "<div class='admin-note-meta'>No notes yet.</div>";
+          return;
+        }
+
+        notesContainer.innerHTML = "";
+        notes.forEach((n) => {
+          const card = document.createElement("div");
+          card.className = "admin-note-card";
+
+          const title = document.createElement("h3");
+          title.className = "admin-note-title";
+          title.textContent = n.title || n.id;
+          card.appendChild(title);
+
+          const meta = document.createElement("div");
+          meta.className = "admin-note-meta";
+          meta.innerHTML =
+            `ID: <code>${n.id}</code><br>` +
+            `Active: ${n.active ? "✅" : "❌"}<br>` +
+            (n.description
+              ? `Description: ${n.description}<br>`
+              : "") +
+            (n.telegramDeepLink
+              ? `Share link: <code>${n.telegramDeepLink}</code>`
+              : "");
+          card.appendChild(meta);
+
+          const actions = document.createElement("div");
+          actions.className = "admin-note-actions";
+
+          const copyLinkBtn = document.createElement("button");
+          copyLinkBtn.className = "btn btn-secondary btn-small";
+          copyLinkBtn.textContent = "Copy Share Link";
+          copyLinkBtn.onclick = () => {
+            navigator.clipboard
+              .writeText(n.telegramDeepLink)
+              .then(() => alert("Link copied. Paste it in Telegram."));
+          };
+          actions.appendChild(copyLinkBtn);
+
+          const previewBtn = document.createElement("button");
+          previewBtn.className = "btn btn-secondary btn-small";
+          previewBtn.textContent = "Open WebApp URL";
+          previewBtn.onclick = () => {
+            window.open(n.webAppUrl, "_blank");
+          };
+          actions.appendChild(previewBtn);
+
+          const revokeBtn = document.createElement("button");
+          revokeBtn.className = "btn btn-danger btn-small";
+          revokeBtn.textContent = "Revoke & New Link";
+          revokeBtn.onclick = () => revokeNote(n.id);
+          actions.appendChild(revokeBtn);
+
+          card.appendChild(actions);
+          notesContainer.appendChild(card);
+        });
+      }
+
+      async function createNote() {
+        const secret = adminSecretInput.value.trim();
+        const title = document.getElementById("new-title").value.trim();
+        const description =
+          document.getElementById("new-description").value.trim();
+        const html = document.getElementById("new-html").value;
+
+        if (!secret) {
+          alert("Enter ADMIN_SECRET first.");
+          return;
+        }
+        if (!title || !html) {
+          alert("Title and HTML are required.");
+          return;
+        }
+
+        try {
+          const res = await fetch(
+            `/api/admin?action=create&admin_secret=${encodeURIComponent(
+              secret
+            )}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title, description, html })
+            }
+          );
+          if (!res.ok) throw new Error("Failed to create note");
+          const data = await res.json();
+          alert(
+            "Note created!\nTelegram link: " + data.links.telegramDeepLink
+          );
+          document.getElementById("new-title").value = "";
+          document.getElementById("new-description").value = "";
+          document.getElementById("new-html").value = "";
+          fetchNotes();
+        } catch (err) {
+          console.error(err);
+          alert("Error creating note.");
+        }
+      }
+
+      async function revokeNote(noteId) {
+        const secret = adminSecretInput.value.trim();
+        if (!secret) {
+          alert("Enter ADMIN_SECRET first.");
+          return;
+        }
+        if (!confirm("Revoke this link and generate a new one?")) return;
+
+        try {
+          const res = await fetch(
+            `/api/admin?action=revoke&admin_secret=${encodeURIComponent(
+              secret
+            )}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ noteId })
+            }
+          );
+          if (!res.ok) throw new Error("Failed to revoke");
+          const data = await res.json();
+          alert(
+            "New link: " + data.links.telegramDeepLink +
+              "\nRemember to share the new link in Telegram."
+          );
+          fetchNotes();
+        } catch (err) {
+          console.error(err);
+          alert("Error revoking note.");
+        }
+      }
+
+      adminSecretInput.addEventListener("change", fetchNotes);
+      createBtn.addEventListener("click", createNote);
+
+      // initial load (will show 'enter secret')
+      fetchNotes();
+    </script>
+  </body>
+</html>
