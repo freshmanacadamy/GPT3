@@ -1,14 +1,11 @@
 {
   "name": "telegram-miniapp-bot",
   "version": "1.0.0",
-  "description": "Telegram Mini App bot with admin dashboard and HTML note viewer",
-  "main": "api/bot.js",
-  "scripts": {
-    "dev": "vercel dev",
-    "start": "node api/bot.js"
-  },
   "dependencies": {
     "node-telegram-bot-api": "^0.64.0",
     "node-fetch": "^2.6.7"
+  },
+  "scripts": {
+    "dev": "vercel dev"
   }
 }
