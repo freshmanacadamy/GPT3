@@ -20,7 +20,7 @@
       "dest": "/public/admin/index.html"
     },
     {
-      "src": "/styles.css", 
+      "src": "/styles.css",
       "dest": "/public/styles.css"
     },
     {
